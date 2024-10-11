@@ -470,7 +470,7 @@ int main() {
 		const int screenWidth = width;
 		const int screenHeight = height;
 
-		InitWindow(screenWidth, screenHeight, "raylib [core] example - basic window");
+		InitWindow(screenWidth, screenHeight, "Collision Based Gas Simulator");
 
 		SetTargetFPS(60);
 	}

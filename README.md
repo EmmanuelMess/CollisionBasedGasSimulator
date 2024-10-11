@@ -11,9 +11,9 @@ in steps.
 
 The general arch is in [architecture.md](architecture.md).
 
-# Image
+# Gallery
 
-<img src="result.webm"/>
+<img src="result.gif"/>
 
 # Compilation and running
 

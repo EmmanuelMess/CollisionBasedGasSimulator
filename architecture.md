@@ -38,6 +38,7 @@ Velocities ≈ $A_v$, $B_v$
 Collsion time ≈ $t_I$  
 Radius of particle ≈ $\Delta d$  
 Distance between particles ≈ $d(X, Y)$  
+Minimum representable value strictly greater than 0 ≈ $\delta$  
 
 $A = (A_x, A_y)$   
 $B = (B_x, B_y)$  
@@ -60,7 +61,9 @@ $d = b^2 + 4 a c$
 
 And we use:
 
-$$ t_1 = \frac{-b - \sqrt{d}}{2 a} $$
+$$ t_1 = \max(\frac{-b - \sqrt{d}}{2 a},\delta) $$
+
+The $\delta$ is used to prevent the simulation from freezing from a floating point underflow.
 
 #### Failure cases
 
@@ -78,6 +81,7 @@ Collision time ≈ $t_I$
 Radius of particle ≈ $\Delta d$   
 Wall position (this is the X coordinate for the sides, and Y coordinate for top/bottom) ≈ $wall$   
 Distance between particle and wall ≈ $d(X)$  
+Minimum representable value strictly greater than 0 ≈ $\delta$
 
 $d(A + A_v t_I, wall) = \Delta d$  
 $d(A + A_v t_I, wall) = \sqrt{(A_p + A_v t_I - wall)^2}$
@@ -95,7 +99,9 @@ $d = b^2 - 4 a c$
 
 And we use:
 
-$$ t_1 = \frac{-b - \sqrt{d}}{2 a} $$
+$$ t_1 = \max(\frac{-b - \sqrt{d}}{2 a}, \delta) $$
+
+The $\delta$ is used to prevent the simulation from freezing from a floating point underflow.
 
 #### Failure cases
 
@@ -141,8 +147,8 @@ Particle B velocity before ≈ $(B_{vx}, B_{vy})$
 Particle B velocity after ≈ $(B'_{vx}, B'_{vy})$  
 
 
-$$({A'}_{vx}, {A'}_{vy}) = \frac{(B_{vx}, B_{vy})}{||(B_{vx}, B_{vy})||} * ||(A_{vx}, A_{vy})|| $$  
-$$({B'}_{vx}, {B'}_{vy}) = \frac{(A_{vx}, A_{vy})}{||(A_{vx}, A_{vy})||} * ||(B_{vx}, B_{vy})|| $$  
+$$({A'}_{vx}, {A'}_{vy}) = \frac{(B_{vx}, B_{vy})}{||(B_{vx}, B_{vy})||} * ||(A_{vx}, A_{vy})||$$  
+$$({B'}_{vx}, {B'}_{vy}) = \frac{(A_{vx}, A_{vy})}{||(A_{vx}, A_{vy})||} * ||(B_{vx}, B_{vy})||$$  
 
 ## Communicating Sequential Processes model
 

@@ -11,7 +11,7 @@ constant const uint height = 500;
 constant const uint numberParticles = 20;
 
 constant const float radius = 20;
-constant const float dt = 0.016f;
+constant const float dt = 0.5f;
 
 constant const float delta = 1e-6f;
 constant const float epsilon = -1e-6f;
@@ -92,7 +92,7 @@ kernel void calculateIntersectionTime(global const struct Particle* particlesInp
 
 	const Time t = t1;
 	// The delta prevents issues where the simulation cannot advance at all (e.g. collision at t = 0.0000)
-	intersectionTimes[i * numberParticles + j] = t < delta? delta : t;
+	intersectionTimes[i * numberParticles + j] = max(delta, t);
 
 	PRINT_DEBUG("Collision: %d((%f, %f), (%f, %f)) and %d((%f, %f), (%f, %f)) at time %f\n", i, pointA.x, pointA.y,
 	       velocityA.x, velocityA.y, j, pointB.x, pointB.y, velocityB.x, velocityB.y, t);
@@ -133,7 +133,7 @@ kernel void collisionTimeParticleWall(const uint i, const float velocity, const 
 
     const Time t = t1;
     // The delta prevents issues where the simulation cannot advance at all (e.g. collision at t = 0.0000)
-    *collisionTime = t < delta? delta : t;
+    *collisionTime = max(delta, t);
 
     PRINT_DEBUG("Collision: %d((%f), (%f)) and ", i, point, velocity);
 }

@@ -146,9 +146,10 @@ Particle B position ≈ $(B_x, B_y)$
 Particle B velocity before ≈ $(B_{vx}, B_{vy})$  
 Particle B velocity after ≈ $(B'_{vx}, B'_{vy})$  
 
+We model elastic collisions with particles of mass $1$ conserving momentum and kinetic energy (https://en.wikipedia.org/wiki/Elastic_collision):
 
-$$({A'}_{vx}, {A'}_{vy}) = \frac{(B_{vx}, B_{vy})}{||(B_{vx}, B_{vy})||} * ||(A_{vx}, A_{vy})||$$  
-$$({B'}_{vx}, {B'}_{vy}) = \frac{(A_{vx}, A_{vy})}{||(A_{vx}, A_{vy})||} * ||(B_{vx}, B_{vy})||$$  
+$$({A'}_{vx}, {A'}_{vy}) = (A_{vx}, A_{vy}) - \frac{((A_{vx} - B_{vx}) (A_x - B_x), (A_{vy} - B_{vy}) (A_y - B_y))}{||(A_x, A_y) - (B_x, B_y)||^2} ((A_x, A_y) - (B_x, B_y))$$  
+$$({B'}_{vx}, {B'}_{vy}) = (B_{vx}, B_{vy}) - \frac{((B_{vx} - A_{vx}) (B_x - A_x), (B_{vy} - A_{vy}) (B_y - A_y))}{||(B_x, B_y) - (A_x, A_y)||^2} ((B_x, B_y) - (A_x, A_y))$$
 
 ## Communicating Sequential Processes model
 

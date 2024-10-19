@@ -61,9 +61,11 @@ $d = b^2 + 4 a c$
 
 And we use:
 
-$$ t_1 = \max(\frac{-b - \sqrt{d}}{2 a},\delta) $$
+$$ t_1 = \max(\frac{-b - \sqrt{d}}{2 a},\sqrt{\delta}) $$
 
-The $\delta$ is used to prevent the simulation from freezing from a floating point underflow.
+The $\sqrt{\delta}$ is used to prevent the simulation from freezing from a floating point underflow. The square root is
+because it will get multiplied with a velocity that is $\sqrt{\delta}$ or larger, and velocity times timestep must
+never be less than $\delta$.
 
 #### Failure cases
 
@@ -99,9 +101,11 @@ $d = b^2 - 4 a c$
 
 And we use:
 
-$$ t_1 = \max(\frac{-b - \sqrt{d}}{2 a}, \delta) $$
+$$ t_1 = \max(\frac{-b - \sqrt{d}}{2 a}, \sqrt{\delta}) $$
 
-The $\delta$ is used to prevent the simulation from freezing from a floating point underflow.
+The $\sqrt{\delta}$ is used to prevent the simulation from freezing from a floating point underflow. The square root is
+because it will get multiplied with a velocity that is $\sqrt{\delta}$ or larger, and velocity times timestep must
+never be less than $\delta$.
 
 #### Failure cases
 
@@ -144,12 +148,28 @@ Particle A velocity before ≈ $(A_{vx}, A_{vy})$
 Particle A velocity after ≈ $(A'_{vx}, A'_{vy})$  
 Particle B position ≈ $(B_x, B_y)$  
 Particle B velocity before ≈ $(B_{vx}, B_{vy})$  
-Particle B velocity after ≈ $(B'_{vx}, B'_{vy})$  
+Particle B velocity after ≈ $(B'_{vx}, B'_{vy})$
+Minimum representable value strictly greater than 0 ≈ $\delta$
 
 We model elastic collisions with particles of mass $1$ conserving momentum and kinetic energy (https://en.wikipedia.org/wiki/Elastic_collision):
 
-$$({A'}_{vx}, {A'}_{vy}) = (A_{vx}, A_{vy}) - \frac{((A_{vx} - B_{vx}) (A_x - B_x), (A_{vy} - B_{vy}) (A_y - B_y))}{||(A_x, A_y) - (B_x, B_y)||^2} ((A_x, A_y) - (B_x, B_y))$$  
-$$({B'}_{vx}, {B'}_{vy}) = (B_{vx}, B_{vy}) - \frac{((B_{vx} - A_{vx}) (B_x - A_x), (B_{vy} - A_{vy}) (B_y - A_y))}{||(B_x, B_y) - (A_x, A_y)||^2} ((B_x, B_y) - (A_x, A_y))$$
+$$({A'}_{vx}, {A'}_{vy}) = (A_{vx}, A_{vy}) - \frac{(A_{vx} - B_{vx}) (A_x - B_x) + (A_{vy} - B_{vy}) (A_y - B_y)}{||(A_x, A_y) - (B_x, B_y)||^2} ((A_x, A_y) - (B_x, B_y))$$  
+$$({B'}_{vx}, {B'}_{vy}) = (B_{vx}, B_{vy}) - \frac{(B_{vx} - A_{vx}) (B_x - A_x) + (B_{vy} - A_{vy}) (B_y - A_y)}{||(B_x, B_y) - (A_x, A_y)||^2} ((B_x, B_y) - (A_x, A_y))$$
+
+The problem with this ecuation is that it accumulates floating point error due to all the floating subtractions.
+To prevent this, we rewrite the ecuation into:
+
+$$d = \frac{(A_{vx} - B_{vx}) (A_x - B_x) + (A_{vy} - B_{vy}) (A_y - B_y)}{||(A_x, A_y) - (B_x, B_y)||^2} ((A_x, A_y) - (B_x, B_y))$$  
+
+$$({A'}_{vx}, {A'}_{vy}) = (A_{vx}, A_{vy}) - d$$
+$$({B'}_{vx}, {B'}_{vy}) = (B_{vx}, B_{vy}) + d$$
+
+To prevent a floating point underflow when the velocity is near zero and the delta is small we use a minimal velocity $\sqrt{\delta}$.
+The square root is because it will get multiplied with a $\Delta t$ that is $\sqrt{\delta}$ or larger, and velocity 
+times timestep must never be less than $\delta$.
+
+$$({A'}_{vx}, {A'}_{vy}) = \max((A_{vx}, A_{vy}) - d, \sqrt{\delta})$$
+$$({B'}_{vx}, {B'}_{vy}) = \max((B_{vx}, B_{vy}) + d, \sqrt{\delta})$$
 
 ## Communicating Sequential Processes model
 

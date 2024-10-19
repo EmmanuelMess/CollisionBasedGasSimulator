@@ -3,6 +3,7 @@
 #include <stddef.h>
 #include <assert.h>
 #include <math.h>
+#include <time.h>
 
 #define CL_TARGET_OPENCL_VERSION 300
 #include <CL/cl.h>
@@ -446,6 +447,12 @@ int callSimulation(struct ClState clState, struct ClSimulationKernel clSimulatio
 	return EXIT_SUCCESS;
 }
 
+static long double getTime() {
+	struct timespec now;
+	clock_gettime(CLOCK_REALTIME, &now);
+	return (long double) now.tv_sec + (long double) now.tv_nsec * 1e-9;
+}
+
 int main() {
 	assert(numberParticles >= 2);
 
@@ -472,14 +479,18 @@ int main() {
 
 		InitWindow(screenWidth, screenHeight, "Collision Based Gas Simulator");
 
-		SetTargetFPS(60);
+		SetTargetFPS(120);
 	}
 
 	uint iteration = 0;
 	bool paused = false;
+	long double iterationTimeSum = 0;
+	long double averageIterationTime = 0;
 
 	while (!WindowShouldClose()) {
 		if(!paused) {
+			const long double start = getTime() * 1000;
+
 			for(int i = 0; i < numberParticles * numberParticles; i++) {
 				intersectionTimes[i] = CL_INFINITY; // TODO check why this is necesary
 			}
@@ -504,10 +515,12 @@ int main() {
 				}
 			}
 
-			int err = callSimulation(clState, clSimulationKernel);
+			{ // Simulate
+				int err = callSimulation(clState, clSimulationKernel);
 
-			if(err != EXIT_SUCCESS) {
-				return EXIT_FAILURE;
+				if (err != EXIT_SUCCESS) {
+					return EXIT_FAILURE;
+				}
 			}
 
 			{ // Read back the results from the device
@@ -520,7 +533,12 @@ int main() {
 				}
 			}
 
+			const long double end = getTime() * 1000;
+
 			iteration++;
+
+			iterationTimeSum += (end - start);
+			averageIterationTime = iterationTimeSum / iteration;
 		}
 
 		{
@@ -528,8 +546,16 @@ int main() {
 
 				ClearBackground(RAYWHITE);
 
+				DrawFPS(0, 0);
+
+				{
+					char text[2048];
+					snprintf(text, sizeof(text), "%Lfms", averageIterationTime);
+					DrawText(text, 0, 15, 20, BLACK);
+				}
+
 				for (uint j = 0; j < numberParticles; j++) {
-					DrawCircle((int) particles[j].position.x, (int) particles[j].position.y, 5, BLACK);
+					DrawCircle((int) particles[j].position.x, (int) particles[j].position.y, 1, BLACK);
 					DrawCircleLines((int) particles[j].position.x, (int) particles[j].position.y, radius, BLACK);
 					DrawLine((int) particles[j].position.x, (int) particles[j].position.y,
 							 (int) (particles[j].position.x + particles[j].velocity.x),

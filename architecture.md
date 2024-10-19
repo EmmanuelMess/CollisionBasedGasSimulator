@@ -171,6 +171,30 @@ times timestep must never be less than $\delta$.
 $$(A \prime_{vx}, A \prime_{vy}) = \max((A_{vx}, A_{vy}) - d, \sqrt{\delta})$$  
 $$(B \prime_{vx}, B \prime_{vy}) = \max((B_{vx}, B_{vy}) + d, \sqrt{\delta})$$
 
+#### Floating point underflow reduction
+
+Particle A velocity before collision ≈ $(A_{vx}, A_{vy})$  
+Particle B velocity before collision ≈ $(B_{vx}, B_{vy})$  
+$d$ update from previous section ≈ $d$
+
+The inner product of the velocities must be equal before and after, any deviation is a floating point calculation error.
+
+$$(A_{vx} -d) (B_{vx} + d) + (A_{vy} -d) (B_{vy} + d) = A_{vx} B_{vx} + A_{vy} B_{vy}$$  
+$$A_{vx}B_{vx} + A_{vy}B_{vy} + d (A_{vx}-B_{vx}+A_{vy}-B_{vy}) - 2d^2 = A_{vx} B_{vx} + A_{vy} B_{vy}$$  
+$$d (A_{vx}-B_{vx}+A_{vy}-B_{vy}) - 2d^2 = 0$$  
+
+Now assume that $d_\varepsilon = d + \varepsilon$ is the incorrect $d$ value obtained by floating point operations:
+
+$$(d+\varepsilon) (A_{vx}-B_{vx}+A_{vy}-B_{vy}) - 2(d+\varepsilon)^2 = 0$$  
+
+The affected terms are:
+
+$$E = \varepsilon (A_{vx}+A_{vy}) - \varepsilon(B_{vx}+B_{vy}) - 4d\varepsilon - 2\varepsilon^2$$
+
+In the long run $(A_{vx}+A_{vy}) \approx (B_{vx}+B_{vy})$ so we don't care for the first two terms. What's left is 
+$E \approx - 2\varepsilon^2 -4 d \varepsilon$ where $-4 d \varepsilon$ is neutral (when $d$ is positive it will be negative and 
+vice versa), and $- 2\varepsilon^2$ which will make the simulation lose velocity in the long term.
+
 ## Communicating Sequential Processes model
 
 #### Designations

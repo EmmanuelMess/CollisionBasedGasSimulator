@@ -2,4 +2,6 @@
 
 // THIS FILE IS GENERATED, DO NOT EDIT
 
-const char simulatorKernels[] = "
+#include "simulator.h"
+
+const char *simulatorKernels = "

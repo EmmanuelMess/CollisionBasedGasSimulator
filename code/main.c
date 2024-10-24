@@ -13,7 +13,7 @@
 #define nullptr NULL
 
 #include "datatypes.h"
-#include "simulator.cl"
+#include "simulator.h"
 
 cl_float2 generatePosition() {
 	const cl_float x = radius + fmodf((cl_float) rand(), (cl_float) width - radius * 2);

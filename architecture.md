@@ -64,7 +64,7 @@ And we use:
 $$ t_1 = \max(\frac{-b - \sqrt{d}}{2 a},\sqrt{\delta}) $$
 
 The $\sqrt{\delta}$ is used to prevent the simulation from freezing from a floating point underflow. The square root is
-because it will get multiplied with a velocity that is $\sqrt{\delta}$ or larger, and velocity times timestep must
+because it will get multiplied with a velocity that is $\sqrt{\delta}$ or larger (or 0), and velocity times timestep must
 never be less than $\delta$.
 
 #### Failure cases
@@ -104,7 +104,7 @@ And we use:
 $$ t_1 = \max(\frac{-b - \sqrt{d}}{2 a}, \sqrt{\delta}) $$
 
 The $\sqrt{\delta}$ is used to prevent the simulation from freezing from a floating point underflow. The square root is
-because it will get multiplied with a velocity that is $\sqrt{\delta}$ or larger, and velocity times timestep must
+because it will get multiplied with a velocity that is $\sqrt{\delta}$ or larger (or 0), and velocity times timestep must
 never be less than $\delta$.
 
 #### Failure cases
@@ -153,7 +153,7 @@ Minimum representable value strictly greater than 0 ≈ $\delta$
 
 We model elastic collisions with particles of mass $1$ conserving momentum and kinetic energy (https://en.wikipedia.org/wiki/Elastic_collision):
 
-$$(A \prime_{vx}, A \prime_{vy}) = (A_{vx}, A_{vy}) - \frac{(A_{vx} - B_{vx}) (A_x - B_x) + (A_{vy} - B_{vy}) (A_y - B_y)}{||(A_x, A_y) - (B_x, B_y)||^2} ((A_x, A_y) - (B_x, B_y))$$  
+$$(A \prime_{vx}, A \prime_{vy}) = (A_{vx}, A_{vy}) - \frac{(A_{vx} - B_{vx}) (A_x - B_x) + (A_{vy} - B_{vy}) (A_y - B_y)}{||(A_x, A_y) - (B_x, B_y)||^2} ((A_x, A_y) - (B_x, B_y))$$
 $$(B \prime_{vx}, B \prime_{vy}) = (B_{vx}, B_{vy}) - \frac{(B_{vx} - A_{vx}) (B_x - A_x) + (B_{vy} - A_{vy}) (B_y - A_y)}{||(B_x, B_y) - (A_x, A_y)||^2} ((B_x, B_y) - (A_x, A_y))$$
 
 The problem with this ecuation is that it accumulates floating point error due to all the floating subtractions.
@@ -161,15 +161,15 @@ To prevent this, we rewrite the ecuation into:
 
 $$d = \frac{(A_{vx} - B_{vx}) (A_x - B_x) + (A_{vy} - B_{vy}) (A_y - B_y)}{||(A_x, A_y) - (B_x, B_y)||^2} ((A_x, A_y) - (B_x, B_y))$$  
 
-$$(A \prime_{vx}, A \prime_{vy}) = (A_{vx}, A_{vy}) - d$$  
+$$(A \prime_{vx}, A \prime_{vy}) = (A_{vx}, A_{vy}) - d$$
 $$(B \prime_{vx}, B \prime_{vy}) = (B_{vx}, B_{vy}) + d$$
 
 To prevent a floating point underflow when the velocity is near zero and the delta is small we use a minimal velocity $\sqrt{\delta}$.
 The square root is because it will get multiplied with a $\Delta t$ that is $\sqrt{\delta}$ or larger, and velocity 
 times timestep must never be less than $\delta$.
 
-$$(A \prime_{vx}, A \prime_{vy}) = \max((A_{vx}, A_{vy}) - d, \sqrt{\delta})$$  
-$$(B \prime_{vx}, B \prime_{vy}) = \max((B_{vx}, B_{vy}) + d, \sqrt{\delta})$$
+If $(A_{vx}, A_{vy}) - d < \sqrt{\delta}$ then $(A \prime_{vx}, A \prime_{vy}) = 0$ otherwise $(A \prime_{vx}, A \prime_{vy}) = (A_{vx}, A_{vy}) - d$.  
+If $(B_{vx}, B_{vy}) - d < \sqrt{\delta}$ then $(B \prime_{vx}, B \prime_{vy}) = 0$ otherwise $(B \prime_{vx}, B \prime_{vy}) = (B_{vx}, B_{vy}) + d$.
 
 #### Floating point underflow reduction
 

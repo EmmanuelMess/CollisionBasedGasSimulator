@@ -252,17 +252,19 @@ kernel void advanceSimulation(global struct Particle * const particlesInput,
             const float2 difference = (product / distanceSquared) * substract;
 
             // The sqrt(delta) prevents issues where the simulation cannot advance at all (e.g. velocity is small and timestep is small)
-            const float2 idealVelocityA = max(velocityA - difference, sqrt(delta));
-            const float2 idealVelocityB = max(velocityB + difference, sqrt(delta));
+            const float2 idealVelocityA = velocityA - difference;
+            const float2 velocityCorrectedA = idealVelocityA < sqrt(delta)? 0:idealVelocityA;
+            const float2 idealVelocityB = velocityB + difference;
+            const float2 velocityCorrectedB = idealVelocityB < sqrt(delta)? 0:idealVelocityB;
 
 #if DEBUG
             const float accumulatedError = (velocityA.x * velocityB.x + velocityA.y * velocityB.y)
-                - (idealVelocityA.x * idealVelocityB.x + idealVelocityA.y * idealVelocityB.y);
+                - (velocityCorrectedA.x * velocityCorrectedB.x + velocityCorrectedA.y * velocityCorrectedB.y);
             printf("Collision error: %f", accumulatedError);
 #endif
 
-            particlesOutput[i].velocity = idealVelocityA;
-            particlesOutput[indexB].velocity = idealVelocityB;
+            particlesOutput[i].velocity = velocityCorrectedA;
+            particlesOutput[indexB].velocity = velocityCorrectedB;
 
 
             PRINT_DEBUG("%d: Particle collision with %d!\n", i, indexB);

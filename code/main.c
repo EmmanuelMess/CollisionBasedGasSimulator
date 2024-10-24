@@ -140,8 +140,7 @@ struct ClSimulationKernel {
 	bool success;
 };
 
-struct ClSimulationKernel initSimulationKernel(struct ClState clState, struct Particle* particlesInput,
-                                               struct Particle* particlesOutput, Time* intersectionTimes) {
+struct ClSimulationKernel initSimulationKernel(struct ClState clState) {
 	struct ClSimulationKernel clSimulationKernel;
 
 	if(!clState.success) {
@@ -194,7 +193,7 @@ struct ClSimulationKernel initSimulationKernel(struct ClState clState, struct Pa
 	{ // Create the input array in device memory for our calculation
 		cl_int err;
 		clSimulationKernel.particlesInput = clCreateBuffer(clState.context, CL_MEM_READ_WRITE,
-		                                                      sizeof(typeof(*particlesInput)) * numberParticles,
+		                                                      sizeof(struct Particle) * numberParticles,
 		                                                   nullptr, &err);
 		if (err != CL_SUCCESS) {
 			printf("Error: Failed to allocate device memory! %d\n", err);
@@ -206,7 +205,7 @@ struct ClSimulationKernel initSimulationKernel(struct ClState clState, struct Pa
 	{ // Create the output array in device memory for our calculation
 		cl_int err;
 		clSimulationKernel.particlesOutput = clCreateBuffer(clState.context, CL_MEM_READ_WRITE,
-		                                                   sizeof(typeof(*particlesOutput)) * numberParticles,
+		                                                   sizeof(struct Particle) * numberParticles,
 		                                                   nullptr, &err);
 		if (err != CL_SUCCESS) {
 			printf("Error: Failed to allocate device memory! %d\n", err);
@@ -218,7 +217,7 @@ struct ClSimulationKernel initSimulationKernel(struct ClState clState, struct Pa
 	{ // Create the output array in device memory for our calculation
 		cl_int err;
 		clSimulationKernel.intersectionTimes = clCreateBuffer(clState.context, CL_MEM_READ_WRITE,
-		                                                      sizeof(typeof(*intersectionTimes)) * (numberParticles * numberParticles),
+		                                                      sizeof(Time) * (numberParticles * numberParticles),
 															  nullptr, &err);
 		if (err != CL_SUCCESS) {
 			printf("Error: Failed to allocate device memory! %d\n", err);
@@ -453,92 +452,148 @@ static long double getTime() {
 	return (long double) now.tv_sec + (long double) now.tv_nsec * 1e-9;
 }
 
-int main() {
-	assert(numberParticles >= 2);
+struct SimulationState {
+	uint iteration;
+	long double iterationTimeSum;
+	long double averageIterationTime;
+};
 
+static int simulationStep(struct ClSimulationKernel clSimulationKernel, struct ClState clState,
+                          struct Particle *particles,
+                          Time *intersectionTimes,
+                          struct SimulationState * simulationState) {
+	const long double start = getTime() * 1000;
+
+	for(int i = 0; i < numberParticles * numberParticles; i++) {
+		intersectionTimes[i] = CL_INFINITY; // TODO check why this is necesary
+	}
+
+	{ // Write our data set into the input array in device memory
+		cl_int err = clEnqueueWriteBuffer(clState.commands, clSimulationKernel.particlesInput, CL_TRUE, 0,
+		                                  sizeof(struct Particle) * numberParticles, particles, 0, nullptr,
+		                                  &clSimulationKernel.writeParticlePositionsEvent);
+		if (err != CL_SUCCESS) {
+			printf("Error: Failed to write to source array! %d\n", err);
+			return EXIT_FAILURE;
+		}
+	}
+
+	{ // Write our data set into the input array in device memory
+		cl_int err = clEnqueueWriteBuffer(clState.commands, clSimulationKernel.intersectionTimes, CL_TRUE, 0,
+		                                  sizeof(Time) * (numberParticles * numberParticles), intersectionTimes, 0, nullptr,
+		                                  &clSimulationKernel.writeIntersectionTimesEvent);
+		if (err != CL_SUCCESS) {
+			printf("Error: Failed to write to source array! %d\n", err);
+			return EXIT_FAILURE;
+		}
+	}
+
+	{ // Simulate
+		int err = callSimulation(clState, clSimulationKernel);
+
+		if (err != EXIT_SUCCESS) {
+			return EXIT_FAILURE;
+		}
+	}
+
+	{ // Read back the results from the device
+		cl_int err = clEnqueueReadBuffer(clState.commands, clSimulationKernel.particlesOutput, CL_TRUE, 0,
+		                                 sizeof(struct Particle) * numberParticles, particles, 0,
+		                                 nullptr, nullptr);
+		if (err != CL_SUCCESS) {
+			printf("Error: Failed to read output array! %d\n", err);
+			return EXIT_FAILURE;
+		}
+	}
+
+	const long double end = getTime() * 1000;
+
+	simulationState->iteration++;
+
+	const uint slidingWindowSize = 100;
+	if(simulationState->iteration % slidingWindowSize == 0) {
+		simulationState->iterationTimeSum = 0;
+	}
+
+	simulationState->iterationTimeSum += (end - start);
+
+	const uint valuesSinceWindowStart = simulationState->iteration % slidingWindowSize + 1;
+	simulationState->averageIterationTime = simulationState->iterationTimeSum / valuesSinceWindowStart;
+
+	return EXIT_SUCCESS;
+}
+
+int main() {
 	srand(22);
 
-	struct Particle particles[numberParticles];
+	struct Particle* particles = calloc(numberParticles, sizeof(struct Particle));
+	if(particles == nullptr) {
+		return EXIT_FAILURE;
+	}
+
 	for (int i = 0; i < numberParticles; i++) {
 		particles[i].position = generatePosition();
 		particles[i].velocity = generateVelocity();
 		printf("Create particle at (%f, %f)\n", particles[i].position.x, particles[i].position.y);
 	}
-	Time intersectionTimes[numberParticles * numberParticles]; // TODO make 2-dimensional array
 
-	struct ClState clState = initClState(true);
-	struct ClSimulationKernel clSimulationKernel = initSimulationKernel(clState, particles, particles, intersectionTimes);
-
-	if(!clSimulationKernel.success) {
+	Time* intersectionTimes = calloc(numberParticles * numberParticles, sizeof(Time));
+	if(intersectionTimes == nullptr) {
+		free(particles);
 		return EXIT_FAILURE;
 	}
 
-	{ // Window initialization
-		const int screenWidth = width;
-		const int screenHeight = height;
+	struct ClState clState = initClState(true);
+	struct ClSimulationKernel clSimulationKernel = initSimulationKernel(clState);
 
-		InitWindow(screenWidth, screenHeight, "Collision Based Gas Simulator");
-
-		SetTargetFPS(120);
+	if(!clSimulationKernel.success) {
+		releaseClSimulationKernel(clSimulationKernel);
+		releaseClState(clState);
+		free(particles);
+		free(intersectionTimes);
+		return EXIT_FAILURE;
 	}
 
-	uint iteration = 0;
+	const int screenWidth = 750;
+	const int screenHeight = 500;
+
+	{ // Window initialization
+		InitWindow(screenWidth, screenHeight, "Collision Based Gas Simulator");
+
+		SetTargetFPS(15);
+	}
+
+	Camera2D camera = {
+		.target = (Vector2) { .x = (float) width / 2, .y = (float) height / 2 },
+		.offset = (Vector2) { .x = (float) screenWidth / 2, .y = (float) screenHeight / 2 },
+		.rotation = 0.0f,
+		.zoom = (float) (screenHeight - 100) / (float) height,
+	};
+
 	bool paused = false;
-	long double iterationTimeSum = 0;
-	long double averageIterationTime = 0;
+	struct SimulationState simulationState = {0};
 
 	while (!WindowShouldClose()) {
 		if(!paused) {
-			const long double start = getTime() * 1000;
+			int err = simulationStep(clSimulationKernel, clState, particles, intersectionTimes, &simulationState);
 
-			for(int i = 0; i < numberParticles * numberParticles; i++) {
-				intersectionTimes[i] = CL_INFINITY; // TODO check why this is necesary
+			if(err != EXIT_SUCCESS) {
+				releaseClSimulationKernel(clSimulationKernel);
+				releaseClState(clState);
+				free(particles);
+				free(intersectionTimes);
+				return EXIT_FAILURE;
 			}
+		}
 
-			{ // Write our data set into the input array in device memory
-				cl_int err = clEnqueueWriteBuffer(clState.commands, clSimulationKernel.particlesInput, CL_TRUE, 0,
-				                                  sizeof(typeof(*particles)) * numberParticles, particles, 0, nullptr,
-				                                  &clSimulationKernel.writeParticlePositionsEvent);
-				if (err != CL_SUCCESS) {
-					printf("Error: Failed to write to source array! %d\n", err);
-					return EXIT_FAILURE;
-				}
-			}
+		{ // Update camera
+			if (IsKeyDown(KEY_RIGHT)) camera.target.x += 2;
+			else if (IsKeyDown(KEY_LEFT)) camera.target.x -= 2;
+			else if (IsKeyDown(KEY_UP)) camera.target.y -= 2;
+			else if (IsKeyDown(KEY_DOWN)) camera.target.y += 2;
 
-			{ // Write our data set into the input array in device memory
-				cl_int err = clEnqueueWriteBuffer(clState.commands, clSimulationKernel.intersectionTimes, CL_TRUE, 0,
-				                                  sizeof(typeof(*intersectionTimes)) * numberParticles, intersectionTimes, 0, nullptr,
-				                                  &clSimulationKernel.writeIntersectionTimesEvent);
-				if (err != CL_SUCCESS) {
-					printf("Error: Failed to write to source array! %d\n", err);
-					return EXIT_FAILURE;
-				}
-			}
 
-			{ // Simulate
-				int err = callSimulation(clState, clSimulationKernel);
-
-				if (err != EXIT_SUCCESS) {
-					return EXIT_FAILURE;
-				}
-			}
-
-			{ // Read back the results from the device
-				cl_int err = clEnqueueReadBuffer(clState.commands, clSimulationKernel.particlesOutput, CL_TRUE, 0,
-				                                 sizeof(typeof(*particles)) * numberParticles, particles, 0,
-				                                 nullptr, nullptr);
-				if (err != CL_SUCCESS) {
-					printf("Error: Failed to read output array! %d\n", err);
-					return EXIT_FAILURE;
-				}
-			}
-
-			const long double end = getTime() * 1000;
-
-			iteration++;
-
-			iterationTimeSum += (end - start);
-			averageIterationTime = iterationTimeSum / iteration;
+			camera.zoom += ((float) GetMouseWheelMove() * 0.05f);
 		}
 
 		{
@@ -546,24 +601,33 @@ int main() {
 
 				ClearBackground(RAYWHITE);
 
+				BeginMode2D(camera);
+
+					DrawRectangle(-5, -5, width + 10, 5, BLACK);
+					DrawRectangle(width, -5, 5, height + 10, BLACK);
+					DrawRectangle(-5, height, width + 10, 5, BLACK);
+					DrawRectangle(-5, -5, 5, height + 10, BLACK);
+
+					for (uint j = 0; j < numberParticles; j++) {
+						DrawCircle((int) particles[j].position.x, (int) particles[j].position.y, 1, BLACK);
+						DrawCircleLines((int) particles[j].position.x, (int) particles[j].position.y, radius, BLACK);
+						DrawLine((int) particles[j].position.x, (int) particles[j].position.y,
+						         (int) (particles[j].position.x + particles[j].velocity.x),
+						         (int) (particles[j].position.y + particles[j].velocity.y), RED);
+
+						char text[2048];
+						snprintf(text, sizeof(text), "%u", j);
+						DrawText(text, (int) particles[j].position.x + 5, (int) particles[j].position.y + 5, 11, BLACK);
+					}
+
+				EndMode2D();
+
 				DrawFPS(0, 0);
 
 				{
 					char text[2048];
-					snprintf(text, sizeof(text), "%Lfms", averageIterationTime);
+					snprintf(text, sizeof(text), "%.2Lfms", simulationState.averageIterationTime);
 					DrawText(text, 0, 15, 20, BLACK);
-				}
-
-				for (uint j = 0; j < numberParticles; j++) {
-					DrawCircle((int) particles[j].position.x, (int) particles[j].position.y, 1, BLACK);
-					DrawCircleLines((int) particles[j].position.x, (int) particles[j].position.y, radius, BLACK);
-					DrawLine((int) particles[j].position.x, (int) particles[j].position.y,
-							 (int) (particles[j].position.x + particles[j].velocity.x),
-							 (int) (particles[j].position.y + particles[j].velocity.y), RED);
-
-					char text[2048];
-					snprintf(text, sizeof(text), "%u", j);
-					DrawText(text, (int) particles[j].position.x + 5, (int) particles[j].position.y + 5, 11, BLACK);
 				}
 
 			EndDrawing();
@@ -581,6 +645,8 @@ int main() {
 	{ // OpenCL shutdown and cleanup
 		releaseClSimulationKernel(clSimulationKernel);
 		releaseClState(clState);
+		free(particles);
+		free(intersectionTimes);
 	}
 
 	return 0;

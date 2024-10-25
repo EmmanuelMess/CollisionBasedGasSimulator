@@ -25,8 +25,11 @@ cl_float2 generatePosition() {
 cl_float2 generateVelocity() {
 	const cl_float length = 20;
 
-	const cl_float x = 0.1f + fmodf((cl_float) rand(), 10.0f);
-	const cl_float y = 0.1f + fmodf((cl_float) rand(), 10.0f);
+	cl_float x = -10.0f + fmodf((cl_float) rand(), 20.0f);
+	cl_float y = -10.0f + fmodf((cl_float) rand(), 20.0f);
+
+	x = fabs(x) < 0.1f ? 0.1f : x;
+	y = fabs(y) < 0.1f ? 0.1f : y;
 
 	const cl_float randomLength = hypotf(x, y);
 
@@ -532,7 +535,7 @@ int main() {
 	}
 
 	for (int i = 0; i < numberParticles; i++) {
-		particles[i].position = generatePosition();
+		particles[i].position = generatePosition(); // TODO fix the overlaps
 		particles[i].velocity = generateVelocity();
 		printf("Create particle at (%f, %f)\n", particles[i].position.x, particles[i].position.y);
 	}

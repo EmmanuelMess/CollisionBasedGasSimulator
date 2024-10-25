@@ -1,4 +1,4 @@
-#define DEBUG true
+#define DEBUG false
 #if DEBUG
 #define PRINT_DEBUG(...) printf(__VA_ARGS__)
 #else
@@ -174,7 +174,9 @@ kernel void findMin(global const Time *intersectionTimes, global struct Collisio
             if (i < j) {
                 continue;
             }
-            PRINT_DEBUG("(%d, %d): %f\n", i, j, intersectionTimes[i * numberParticles + j]);
+            if(intersectionTimes[i * numberParticles + j] != INFINITY) {
+                PRINT_DEBUG("(%d, %d): %f\n", i, j, intersectionTimes[i * numberParticles + j]);
+            }
 
             const Time intersectionTimeA = intersectionTimes[i * numberParticles + j];
 
@@ -225,13 +227,10 @@ kernel void advanceSimulation(global struct Particle * const particlesInput,
         case NONE: {
             particlesOutput[i].position = particlesInput[i].position + timestep * particlesInput[i].velocity;
             particlesOutput[i].velocity = particlesInput[i].velocity;
-
-            PRINT_DEBUG("%d: No collision!\n", i);
             return;
         }
         case IGNORE: {
             //Another particle is dealing with the collision
-            PRINT_DEBUG("%d: Other particle collision!\n", i);
             return;
         }
         case PARTICLE_PARTICLE: {
@@ -253,14 +252,21 @@ kernel void advanceSimulation(global struct Particle * const particlesInput,
 
             // The sqrt(delta) prevents issues where the simulation cannot advance at all (e.g. velocity is small and timestep is small)
             const float2 idealVelocityA = velocityA - difference;
-            const float2 velocityCorrectedA = idealVelocityA < sqrt(delta)? 0:idealVelocityA;
+            float2 velocityCorrectedA = 0;
+            velocityCorrectedA.x = fabs(idealVelocityA.x) < sqrt(delta)? 0:idealVelocityA.x;
+            velocityCorrectedA.y = fabs(idealVelocityA.y) < sqrt(delta)? 0:idealVelocityA.y;
+
             const float2 idealVelocityB = velocityB + difference;
-            const float2 velocityCorrectedB = idealVelocityB < sqrt(delta)? 0:idealVelocityB;
+            float2 velocityCorrectedB = 0;
+            velocityCorrectedB.x = fabs(idealVelocityB.x) < sqrt(delta)? 0:idealVelocityB.x;
+            velocityCorrectedB.y = fabs(idealVelocityB.y) < sqrt(delta)? 0:idealVelocityB.y;
 
 #if DEBUG
             const float accumulatedError = (velocityA.x * velocityB.x + velocityA.y * velocityB.y)
                 - (velocityCorrectedA.x * velocityCorrectedB.x + velocityCorrectedA.y * velocityCorrectedB.y);
-            printf("Collision error: %f", accumulatedError);
+            printf("Collision error: %f = (%f,%f)x(%f,%f) - (%f,%f)x(%f,%f)", accumulatedError,
+                        velocityA.x, velocityA.y, velocityB.x, velocityB.y,
+                        velocityCorrectedA.x, velocityCorrectedA.y, velocityCorrectedB.x, velocityCorrectedB.y);
 #endif
 
             particlesOutput[i].velocity = velocityCorrectedA;

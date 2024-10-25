@@ -168,8 +168,10 @@ To prevent a floating point underflow when the velocity is near zero and the del
 The square root is because it will get multiplied with a $\Delta t$ that is $\sqrt{\delta}$ or larger, and velocity 
 times timestep must never be less than $\delta$.
 
-If $(A_{vx}, A_{vy}) - d < \sqrt{\delta}$ then $(A \prime_{vx}, A \prime_{vy}) = 0$ otherwise $(A \prime_{vx}, A \prime_{vy}) = (A_{vx}, A_{vy}) - d$.  
-If $(B_{vx}, B_{vy}) - d < \sqrt{\delta}$ then $(B \prime_{vx}, B \prime_{vy}) = 0$ otherwise $(B \prime_{vx}, B \prime_{vy}) = (B_{vx}, B_{vy}) + d$.
+$step(x) = 0$ if $|x| < \sqrt{\delta}$ otherwise $step(x) = x$
+
+$$(A \prime_{vx}, A \prime_{vy}) = (step(A_{vx} - d_x), step(A_{vy} - d_y))$$
+$$(B \prime_{vx}, B \prime_{vy}) = (step(B_{vx} + d_x), step(B_{vy} + d_y))$$
 
 #### Floating point underflow reduction
 

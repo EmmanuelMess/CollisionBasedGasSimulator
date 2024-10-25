@@ -8,7 +8,7 @@
 const cl_uint width = 500;
 const cl_uint height = 500;
 
-const cl_uint numberParticles = 20;
+const cl_uint numberParticles = 70;
 
 const cl_float radius = 20;
 const cl_float dt = 0.5f;

@@ -8,7 +8,7 @@
 constant const uint width = 500;
 constant const uint height = 500;
 
-constant const uint numberParticles = 20;
+constant const uint numberParticles = 70;
 
 constant const float radius = 20;
 constant const float dt = 0.5f;

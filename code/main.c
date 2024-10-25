@@ -563,7 +563,7 @@ int main() {
 	{ // Window initialization
 		InitWindow(screenWidth, screenHeight, "Collision Based Gas Simulator");
 
-		SetTargetFPS(15);
+		SetTargetFPS(120);
 	}
 
 	Camera2D camera = {
